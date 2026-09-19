@@ -12,6 +12,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Original portions of this file are licensed under the MIT License.
+ * See THIRD_PARTY_LICENSES
  */
 
 use std::{
