@@ -257,12 +257,30 @@ fn resolve_managed_language_server(
         &zed::LanguageServerInstallationStatus::CheckingForUpdate,
     );
     let result: zed::Result<String> = (|| {
-        let release_tag =
-            get_latest_language_server_release(language_version)?.ok_or_else(|| {
-                format!("No language-server release found for Nextflow {language_version}")
-            })?;
+        let cached_jar_path = get_latest_cached_language_server(language_version);
 
-        let cache_directory = format!("nextflow-language-server/v{language_version}");
+        let release_tag = match get_latest_language_server_release(language_version) {
+            // remote found
+            Ok(Some(release_tag)) => release_tag,
+            // response, but no version found that matches the requested
+            Ok(None) => {
+                return cached_jar_path.ok_or_else(|| {
+                    format!(
+                        "No language server release found on GitHub for Nextflow {language_version} and no cached version is available"
+                    )
+                });
+            }
+            // network lookup fails entirely
+            Err(error) => {
+                return cached_jar_path.ok_or_else(|| {
+                    format!(
+                        "Failed to check for a language server release and no cached version is available: {error}"
+                    )
+                });
+            }
+        };
+
+        let cache_directory = language_server_cache_dir(language_version);
         let jar_path = format!("{cache_directory}/{release_tag}.jar");
 
         if fs::metadata(&jar_path).is_ok_and(|metadata| metadata.is_file() && metadata.len() != 0) {
@@ -309,6 +327,35 @@ fn resolve_managed_language_server(
     }
 }
 
+fn get_latest_cached_language_server(language_version: &str) -> Option<String> {
+    let tag_prefix = format!("v{language_version}.");
+    let cache_dir = language_server_cache_dir(language_version);
+
+    fs::read_dir(cache_dir)
+        .ok()?
+        .flatten()
+        .filter_map(|result| {
+            let metadata = result.metadata().ok()?;
+            // checks that the cached lang server jar file is somewhat valid
+            // if its a partial file or corrupted we let java handle it when language server
+            // jar is invoked
+            if !metadata.is_file() || metadata.len() == 0 {
+                return None;
+            }
+
+            let file_name = result.file_name().into_string().ok()?;
+            let file_release = file_name.strip_suffix(".jar")?;
+            let patch = file_release
+                .strip_prefix(&tag_prefix)?
+                .parse::<u64>()
+                .ok()?;
+
+            Some((patch, result.path()))
+        })
+        .max_by_key(|(patch, _)| *patch)
+        .map(|(_, path)| path.to_string_lossy().into_owned())
+}
+
 fn get_latest_language_server_release(language_version: &str) -> zed::Result<Option<String>> {
     let response = zed::http_client::HttpRequest::builder()
         .method(HttpMethod::Get)
@@ -335,6 +382,10 @@ fn get_latest_language_server_release(language_version: &str) -> zed::Result<Opt
         })
         .max_by_key(|(patch, _)| *patch)
         .map(|(_, tag)| tag.to_owned()))
+}
+
+fn language_server_cache_dir(language_version: &str) -> String {
+    format!("nextflow-language-server/v{language_version}")
 }
 
 fn merge_json(source: Value, target: &mut Value) {
