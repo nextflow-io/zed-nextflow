@@ -23,7 +23,7 @@ path = ["nextflow-io", "language-server", "releases", "download", "**"]
 
 [grammars.nextflow]
 repository = "https://github.com/nextflow-io/tree-sitter-nextflow"
-rev = "69a72c6cf4e90609b8558fc05d7d17a5f3df7894" # v0.3.0
+rev = "27555a539f318333fc39785fc82730b207314c9c" # v0.4.0
 
 [language_servers.nextflow-language-server]
 name = "Nextflow Language Server"

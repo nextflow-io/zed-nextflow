@@ -1,16 +1,23 @@
 (process_definition
   "process" @context
-  . (identifier) @name) @item
+  name: (identifier) @name) @item
 
 (workflow_definition
   "workflow" @context
-  . (identifier) @name) @item
+  name: (identifier) @name) @item
 
 (workflow_definition
   "workflow" @name
-  . "{") @item
+  !name) @item
 
 (function_definition
-  "def" @context
-  (identifier) @name
-  . "(") @item
+  "def"? @context
+  name: (identifier) @name) @item
+
+(record_definition
+  "record" @context
+  name: (identifier) @name) @item
+
+(enum_definition
+  "enum" @context
+  name: (identifier) @name) @item

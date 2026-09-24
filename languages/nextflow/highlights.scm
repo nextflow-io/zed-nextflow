@@ -1,156 +1,241 @@
-;; reference: https://github.com/nextflow-io/nextflow/blob/37da32c7fe3cda494d516a6d5e1fdbf02959fc9c/docs/reference/syntax.mdx
-;; reference: https://github.com/nextflow-io/tree-sitter-nextflow/blob/172d3fef409aa1220fa9c10bc674e7dc675710e3/queries/highlights.scm
-;; reference: https://github.com/valentinegb/zed-groovy/blob/63ff013c95dd653fa86640d77dc9e0f01b379b7a/languages/groovy/highlights.scm
-
-[
-  "process" "workflow" "include" "from" "def"
-  "if" "else" "assert" "return" "try" "catch" "finally" "new"
-] @keyword
-
-(shebang) @preproc
-
-"exit" @function
-
-;; Nextflow declarations
+;; Ported from https://github.com/nextflow-io/tree-sitter-nextflow/blob/v0.4.0/queries/highlights.scm
+;; with capture names mapped onto Zed theme keys. Later patterns take precedence.
 
 (identifier) @variable
 
-(feature_flag
-  "nextflow" @variable.special)
+((identifier) @variable.special
+  (#any-of? @variable.special
+    "params" "task" "workflow" "nextflow" "log" "launchDir" "moduleDir"
+    "projectDir" "workDir" "baseDir" "secrets"))
 
-(parameter
-  "params" @variable.special
-  (identifier) @property)
+((identifier) @type.builtin
+  (#any-of? @type.builtin "Channel" "channel"))
+
+;; ========================================
+;; KEYWORDS
+;; ========================================
 
 [
-  (include_item
-    (identifier) @function)
-  (process_definition
-    (identifier) @function)
-  (workflow_definition
-    (identifier) @function)
-]
-
-(function_definition
-  (identifier) @function
-  . "(")
-
-(cast_expression
+  "process"
+  "workflow"
+  "agent"
+  "include"
+  "from"
+  "import"
+  "nextflow"
+  "params"
+  "record"
+  "enum"
+  "tuple"
+  "def"
   "as"
-  [(identifier) (dotted_identifier)] @type)
-
-(constructor_call
   "new"
-  [(identifier) (dotted_identifier)] @type)
-
-(closure_parameter) @variable.parameter
-
-;; Process and workflow sections
-
-["input:" "output:" "when:" "take:" "main:" "emit:"] @label
-
-(script_declaration
-  ["script" "shell" "exec" "stub"] @label)
-
-(directive
-  . (identifier) @attribute)
-
-(label_statement
-  . (identifier) @label)
-
-(option_entry
-  . (identifier) @property)
-
-(map_entry
-  . (identifier) @property)
-
-;; Calls, channel operations, and properties
+] @keyword
 
 [
-  (command_expression
-    . (identifier) @function)
-  (function_call
-    . (identifier) @function)
-  (process_invocation
-    . (identifier) @function)
-]
-
-(process_output
-  . (identifier) @function
-  "out" @property
-  (identifier)? @property)
+  "if"
+  "else"
+  "for"
+  "try"
+  "catch"
+  "finally"
+  "return"
+  "throw"
+  "assert"
+] @keyword.control
 
 [
-  (channel_factory
-    (identifier) @function)
-  (channel_from
-    "from" @function)
-  (channel_from_list
-    "fromList" @function)
-  (channel_of
-    "of" @function)
-  (channel_value
-    "value" @function)
-]
+  "in"
+  "!in"
+  "instanceof"
+  "!instanceof"
+] @keyword.operator
 
-(map_operation
-  "map" @function)
+;; Section labels
+[
+  "input"
+  "output"
+  "stage"
+  "topic"
+  "when"
+  "script"
+  "shell"
+  "exec"
+  "stub"
+  "prompt"
+  "take"
+  "main"
+  "emit"
+  "publish"
+  "onComplete"
+  "onError"
+] @label
 
-(operator_closure
-  . (identifier) @function)
+(output_definition "output" @keyword)
 
-(pipe_operation
-  . (identifier) @function)
+(labeled_statement label: (identifier) @label)
 
-(method_call
-  (identifier) @function
-  . ["(" (closure)])
+;; ========================================
+;; DEFINITIONS
+;; ========================================
 
-(string_method_call
-  (identifier) @function
-  . "(")
+(process_definition name: (identifier) @function)
+(workflow_definition name: (identifier) @function)
+(agent_definition name: (identifier) @function)
+(function_definition name: (identifier) @function)
+(include_item name: (identifier) @function)
+(include_item alias: (identifier) @function)
 
-(property_expression
-  (identifier) @property)
+(parameter name: (identifier) @variable.parameter)
+(workflow_take name: (identifier) @variable.parameter)
+(process_input name: (identifier) @variable.parameter)
 
-(dotted_identifier
-  . (identifier) @variable
-  (identifier) @property)
+(param_declaration name: (identifier) @property)
+(param_assignment (identifier) @property)
+(feature_flag (identifier) @property)
+(record_field name: (identifier) @property)
+(workflow_emit name: (identifier) @property)
+(workflow_publish name: (identifier) @property)
+(process_output name: (identifier) @property)
+(output_declaration name: (identifier) @property)
 
-"Channel" @type.builtin
+(record_definition name: (identifier) @type)
+(enum_definition name: (identifier) @type)
+(enum_constant) @constant
+(type (identifier) @type)
 
-;; Literals
+;; ========================================
+;; CALLS AND PROPERTIES
+;; ========================================
+
+(member_expression property: (identifier) @property)
+(named_argument name: (identifier) @property)
+
+(call_expression function: (identifier) @function.call)
+(call_expression function: (member_expression property: (identifier) @function.method))
+(command_expression function: (identifier) @function.call)
+(command_expression function: (member_expression property: (identifier) @function.method))
+
+;; Process directives: tag "x", cpus 4, memory { 2.GB * task.attempt }
+(process_definition
+  (expression_statement
+    [
+      (command_expression function: (identifier) @attribute)
+      (call_expression function: (identifier) @attribute)
+    ]))
+
+;; Legacy input/output qualifiers: val x, path "*.bam", tuple val(meta), path(x)
+(input_section
+  (expression_statement
+    (command_expression function: (identifier) @type.builtin)))
+(output_section
+  (expression_statement
+    (command_expression function: (identifier) @type.builtin)))
+(input_section
+  (expression_statement
+    (command_expression
+      arguments: (argument_list (call_expression function: (identifier) @type.builtin)))))
+(output_section
+  (expression_statement
+    (command_expression
+      arguments: (argument_list (call_expression function: (identifier) @type.builtin)))))
+((output_section (process_output name: (identifier) @type.builtin))
+  (#any-of? @type.builtin "stdout" "stdin"))
+
+;; ========================================
+;; OPERATORS AND PUNCTUATION
+;; ========================================
 
 [
-  (string) (string_literal) (triple_quoted_string)
-  (interpolated_string) (interpolated_triple_quoted_string)
-] @string
-
-(slashy_string) @string.regex
-(escape_sequence) @string.escape
-
-[(number) (integer_literal) (float_literal)] @number
-
-[(boolean) (boolean_literal)] @boolean
-
-(interpolation
-  "$" @punctuation.special)
-
-;; Operators
+  "="
+  "+="
+  "-="
+  "*="
+  "/="
+  "%="
+  "**="
+  "<<="
+  ">>="
+  ">>>="
+  "&="
+  "|="
+  "^="
+  "?="
+] @operator.assignment
 
 [
-  "=" "+=" "-=" "*=" "/=" "%=" "**=" "<<=" ">>=" "&=" "|=" "^=" "?="
-  "+" "-" "*" "/" "%" "**" "==" "!=" "<" ">" "<=" ">=" "&&" "||"
-  ".." "..<" "=~" "as" "==~" "?:" "<=>" "<<" "&" "^" "|" "!" "~"
-  "?" "->" "in" "instanceof" "?." "*."
+  "=="
+  "!="
+  "<"
+  ">"
+  "<="
+  ">="
+  "&&"
+  "||"
+  "=~"
+  "==~"
+  "<=>"
+  "?:"
+  "?"
+  "!"
+  "+"
+  "-"
+  "*"
+  "/"
+  "%"
+  "**"
+  ".."
+  "..<"
+  "<<"
+  ">>"
+  ">>>"
+  "&"
+  "^"
+  "~"
+  "?."
+  "*."
 ] @operator
 
-;; Brackets
+;; Channel pipes and closure arrows
+[
+  "|"
+  "->"
+] @operator.channel
 
-["(" ")" "[" "]" "{" "}"] @punctuation.bracket
+[
+  "("
+  ")"
+  "["
+  "]"
+  "{"
+  "}"
+] @punctuation.bracket
 
-["," ";" ":" "."] @punctuation.delimiter
+[
+  ","
+  ":"
+  "."
+] @punctuation.delimiter
 
-;; Comments
+;; ========================================
+;; LITERALS
+;; ========================================
 
-[(line_comment) (block_comment)] @comment
+(string) @string
+(string_content) @string
+(escape_sequence) @string.escape
+(interpolation ["${" "$" "}"] @punctuation.special)
+(slashy_string) @string.regex
+
+(integer_literal) @number
+(float_literal) @number.float
+(boolean_literal) @boolean
+(null_literal) @constant.builtin
+
+;; ========================================
+;; COMMENTS
+;; ========================================
+
+(line_comment) @comment
+(block_comment) @comment
+(shebang) @preproc
