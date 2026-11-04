@@ -1,0 +1,18 @@
+name = "Nextflow"
+grammar = "nextflow"
+path_suffixes = ["nf", "config", "nf.test"]
+line_comments = ["// "]
+block_comment = { start = "/*", end = "*/", prefix = "", tab_size = 0 }
+
+brackets = [
+    { start = "{", end = "}", close = true, newline = true },
+    { start = "[", end = "]", close = true, newline = true },
+    { start = "(", end = ")", close = true, newline = true },
+    { start = "/*", end = " */", close = true, newline = true },
+    { start = "'''", end = "'''", close = true, newline = false },
+    { start = "\"\"\"", end = "\"\"\"", close = true, newline = false },
+    { start = "'", end = "'", close = true, newline = false, not_in = ["string", "comment"] },
+    { start = "\"", end = "\"", close = true, newline = false, not_in = ["string", "comment"] },
+]
+
+increase_indent_pattern = "^\\s*process\\b.*\\{\\s*$"

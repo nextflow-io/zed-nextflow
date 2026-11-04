@@ -1,0 +1,22 @@
+[package]
+name = "zed-nextflow"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/nextflow.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.7.0"
+
+[lints.rust]
+unused_qualifications = "warn"
+trivial_numeric_casts = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+cast_precision_loss = "allow"
